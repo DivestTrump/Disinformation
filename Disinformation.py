@@ -1129,7 +1129,7 @@ class Disinformation:
             self.InitializeReddit()
 
         # Assume the worst
-        redditJson = 'error'
+        redditJson = {'error': 'error'}
 
         # Format url arguments
         args = []
@@ -1169,10 +1169,12 @@ class Disinformation:
 
             else:
 
+                redditJson = {'error': str(response.status_code)}
                 self.Log('GetRedditJson : Error ['+url+'] - Code '+str(response.status_code))
 
         except Exception as e:
 
+            redditJson = {'error': str(e)}
             self.Log('GetRedditJson : Error ['+url+'] - '+str(e))
 
 
