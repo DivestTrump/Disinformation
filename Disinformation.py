@@ -1,14 +1,6 @@
 import datetime, json, openpyxl, os, pythonwhois, re, requests, socket, time, tweepy
 
 
-twitterAuthData = {
-    'consumer_key': 'GET YOUR OWN',
-    'consumer_secret': 'GET YOUR OWN',
-    'access_token': 'GET YOUR OWN',
-    'access_token_secret': 'GET YOUR OWN'
-    }
-
-
 class Disinformation:
 
 
@@ -18,6 +10,10 @@ class Disinformation:
 
         # Get current directory
         self.appPath = os.path.dirname(os.path.realpath(__file__))
+
+        # Input data in same directory
+        self.twitterAuthPath = os.path.join(self.appPath, 'twitter_auth.json')
+        self.domainsToCheckPath = os.path.join(self.appPath, 'domains.json')
 
         # Set data directory
         self.dataPath = os.path.join(self.appPath, 'Disinformation')
@@ -32,224 +28,52 @@ class Disinformation:
         self.excelOutputPath = os.path.join(self.dataPath, 'Disinformation.xlsx')
 
         # Initialize APIs
-        self.InitializeTwitter()
+        self.disableTwitter = False # Set to True if you don't have a twitter API key
+
+        if not self.disableTwitter:
+
+            self.InitializeTwitter()
+
         self.InitializeReddit()
+
 
         self.Log('Starting', True)
 
-        domains = [
-            {"name": "consortiumnews.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "lifezette.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "presstv.com", "type": "Iran", "sub_type": ""},
-            {"name": "blacklistednews.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "rense.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "collective-evolution.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "rt.com", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "presstv.ir", "type": "Iran", "sub_type": ""},
-            {"name": "thegatewaypundit.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "sputniknews.com", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "timesofisrael.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "tass.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "globalresearch.ca", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "rferl.org", "type": "American", "sub_type": ""},
-            {"name": "ria.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "russia-insider.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "100percentfedup.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "tass.com", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "veteranstoday.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "theoccidentalobserver.net", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "svoboda.org", "type": "American", "sub_type": ""},
-            {"name": "newobserveronline.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "rian.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "southfront.org", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "veteransnewsnow.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "voiceofrussia.com", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "thetruthseeker.co.uk", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "journal-neo.org", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "ruvr.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "humansarefree.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "freedomoutpost.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "tjournal.ru", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "mynewsguru.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "fellowshipoftheminds.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "defyccc.com", "type": "Climate Denial", "sub_type": ""},
-            {"name": "eutimes.net", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "radiosvoboda.org", "type": "American", "sub_type": ""},
-            {"name": "pi-news.net", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "rtlnieuws.nl", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "savemysweden.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "brutalist.press", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "khamenei.ir", "type": "Iran", "sub_type": ""},
-            {"name": "news-front.info", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "std3.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "vestnikkavkaza.net", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "fort-russ.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "greanvillepost.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "darkmoon.me", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "hangthebankers.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "azatutyun.am", "type": "American", "sub_type": ""},
-            {"name": "eaglerising.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "progressivestoday.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "katehon.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "radiofarda.com", "type": "American", "sub_type": ""},
-            {"name": "godfatherpolitics.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "hispantv.com", "type": "Iran", "sub_type": ""},
-            {"name": "pontiactribune.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "thefifthcolumnnews.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "darkpolitricks.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "4thmedia.org", "type": "Chinese", "sub_type": ""},
-            {"name": "rtlz.nl", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "dirty.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "regnum.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "politicaloutcast.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "svaboda.org", "type": "American", "sub_type": ""},
-            {"name": "geopolmonitor.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "davidharrisjr.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "armenialiberty.org", "type": "American", "sub_type": ""},
-            {"name": "sptnkne.ws", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "lastresistance.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "dailystormer.name", "type": "Nazi", "sub_type": ""},
-            {"name": "usasupreme.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "dninews.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "europalibera.org", "type": "American", "sub_type": ""},
-            {"name": "d3.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "hempforfuture.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "azadliq.org", "type": "American", "sub_type": ""},
-            {"name": "azadliqradiosu.az", "type": "American", "sub_type": ""},
-            {"name": "riafan.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "slobodnaevropa.org", "type": "American", "sub_type": ""},
-            {"name": "visiontoamerica.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "whatfinger.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "syriareport.net", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "geopolitica.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "fenixx.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "alt-right.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "greedmedia.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "geotus.army", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "azattyq.org", "type": "American", "sub_type": ""},
-            {"name": "mondialisation.ca", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "presstv.us", "type": "Iran", "sub_type": ""},
-            {"name": "ozodi.org", "type": "American", "sub_type": ""},
-            {"name": "grtv.ca", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "hispantv.ir", "type": "Iran", "sub_type": ""},
-            {"name": "svobodanews.ru", "type": "American", "sub_type": ""},
-            {"name": "leprosorium.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "sentrybugle.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "azattyk.org", "type": "American", "sub_type": ""},
-            {"name": "hectorreban.wordpress.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "bighealthreport.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "vesti.lv", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "rubaltic.ru", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "dnipress.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "ozodlik.org", "type": "American", "sub_type": ""},
-            {"name": "fightwhitegenocide.com", "type": "Nazi", "sub_type": ""},
-            {"name": "rianovosti.com", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "usareally.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "shoebat.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "libertybuzznews.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "whatreallyhappened.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "voicerussia.com", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "baltnews.lt", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "presstv.in", "type": "Iran", "sub_type": ""},
-            {"name": "azathabar.com", "type": "American", "sub_type": ""},
-            {"name": "radiotavisupleba.ge", "type": "American", "sub_type": ""},
-            {"name": "geotus.band", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "azathabar.org", "type": "American", "sub_type": ""},
-            {"name": "evropaelire.org", "type": "American", "sub_type": ""},
-            {"name": "ekhokavkaza.com", "type": "American", "sub_type": ""},
-            {"name": "globalresearch.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "vestikavkaza.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "jovan.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "baltnews.lv", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "no2nato.org", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "hireveterans.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "veteranstodaynetwork.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "veteranstodayjobs.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "mashaalradio.com", "type": "American", "sub_type": ""},
-            {"name": "radiosvoboda.ua", "type": "American", "sub_type": ""},
-            {"name": "radioazadlyg.org", "type": "American", "sub_type": ""},
-            {"name": "ussrfall.com", "type": "American", "sub_type": ""},
-            {"name": "azatliq.org", "type": "American", "sub_type": ""},
-            {"name": "slobodnaevropa.mk", "type": "American", "sub_type": ""},
-            {"name": "radiomarsho.com", "type": "American", "sub_type": ""},
-            {"name": "kremlintroll.nl", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "thechinawatch.com", "type": "Chinese", "sub_type": ""},
-            {"name": "biztass.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "telegraf.lv", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "rtlboulevard.nl", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "hispantv.net", "type": "Iran", "sub_type": ""},
-            {"name": "savedonbasspeople.info", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "empoderasalud.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "vahomeloannews.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "veteranstodayforum.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "legalhelp4veterans.info", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "veteranstodaybusinessdirectory.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "militaryveteranjobnews.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "fbipajamas.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "celebritycolumns.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "bridgeagents.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "fitcolumns.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "justinking.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "nonfictionsection.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "sleepercells.us", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "azattyk.kg", "type": "American", "sub_type": ""},
-            {"name": "khutynygharadio.com", "type": "American", "sub_type": ""},
-            {"name": "radioerkenli.com", "type": "American", "sub_type": ""},
-            {"name": "mashaalradio.org", "type": "American", "sub_type": ""},
-            {"name": "regionalanalysis.org", "type": "American", "sub_type": ""},
-            {"name": "europaelire.org", "type": "American", "sub_type": ""},
-            {"name": "iraqhurr.org", "type": "American", "sub_type": ""},
-            {"name": "azatradio.org", "type": "American", "sub_type": ""},
-            {"name": "makdenes.org", "type": "American", "sub_type": ""},
-            {"name": "danas.org", "type": "American", "sub_type": ""},
-            {"name": "ozodi.tj", "type": "American", "sub_type": ""},
-            {"name": "oxuzali.az", "type": "American", "sub_type": ""},
-            {"name": "radioazadlyg.ru", "type": "American", "sub_type": ""},
-            {"name": "tavisupleba.org", "type": "American", "sub_type": ""},
-            {"name": "ekhokavkaza.org", "type": "American", "sub_type": ""},
-            {"name": "rferl.net", "type": "American", "sub_type": ""},
-            {"name": "radioazattyk.org", "type": "American", "sub_type": ""},
-            {"name": "freedomfulfillment.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "vestnikkavkaza.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "sharpelbows.net", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "islamismus.net", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "globalresearchtv.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "geopolitika.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "rusnews.cn", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "radiovr.com.cn", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "sputniknews.cn", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "риановости.рф", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "futurico.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "enze.net", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "goohoo.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "conspiracy.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "lepra.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "tasstelecom.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "rttv.ru", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "russiatoday.net", "type": "Russian", "sub_type": "Mainstream"},
-            {"name": "the.tj", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "stihi.lv", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "lublu.lv", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "subbota.com", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "baltnews.ee", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "hispantv.mx", "type": "Iran", "sub_type": ""},
-            {"name": "hispan.tv", "type": "Iran", "sub_type": ""},
-            {"name": "stalkerzone.org", "type": "Russian", "sub_type": "Deceptive"},
-            {"name": "stream.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "thestream.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "alwaght.com", "type": "Iran", "sub_type": ""},
-            {"name": "judicialwatch.org", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "corruptionchronicles.com", "type": "Useful Idiot", "sub_type": ""},
-            {"name": "obamairsscandal.com", "type": "Useful Idiot", "sub_type": ""}
-            ]
+        #domainsToCheck = [{"name": "usareally.com", "type": "Russian", "sub_type": "Deceptive"}]
 
-        for domain in domains:
+        domainsToCheck = self.LoadJson(self.domainsToCheckPath)
 
-            domain['data'] = self.CheckDomain(domain['name'])
+        for domainToCheck in domainsToCheck:
 
-        self.ExportJson(domains)
+            domainToCheck['data'] = self.CheckDomain(domainToCheck['name'])
 
-        self.ExportSpreadsheet(domains)
+        # Import previous results if True
+        importPreviousDomains = False
+
+        domainsToImport = self.LoadJson(self.rawOutputPath)
+
+        if isinstance(domainsToImport, list):
+
+            for domainToImport in domainsToImport:
+
+                # Don't duplicate domains
+                if len(domainsToCheck) == 0:
+
+                    domainsToCheck.append(domainToImport)
+
+                else:
+
+                    domainFind = list(filter(lambda d: d['name'] == domainToImport['name'], domainsToCheck))
+
+                    if len(domainFind) == 0:
+
+                        domainsToCheck.append(domainToImport)
+
+        # Export as raw json file
+        self.ExportJson(domainsToCheck)
+
+        # Export as spreadsheet
+        self.ExportSpreadsheet(domainsToCheck)
 
         self.Log('Complete', True)
 
@@ -307,7 +131,9 @@ class Disinformation:
 
         domainInfo['search'] = self.GetSearchLinks(domainInfo['domain'])
 
-        domainInfo['twitter_data'] = self.SearchTwitter(domainInfo['domain'])
+        if not self.disableTwitter:
+
+            domainInfo['twitter_data'] = self.SearchTwitter(domainInfo['domain'])
 
         domainInfo['reddit_data'] = self.SearchReddit(domainInfo['domain'])
 
@@ -320,167 +146,6 @@ class Disinformation:
 
 
         return domainInfo
-
-
-    # Export domain data as spreadsheet
-    # import openpyxl, os
-    def ExportSpreadsheet(self, domains):
-
-        self.Log('ExportSpreadsheet : Starting')
-
-        wb = openpyxl.Workbook()
-
-        overviewSheet = wb.active
-        overviewSheet.title = 'Overview'
-
-        overviewKeys = [
-            {'column': 'A', 'title': 'Domain', 'key': 'name', 'object': 'self'},
-            {'column': 'B', 'title': 'Type', 'key': 'type', 'object': 'self'},
-            {'column': 'C', 'title': 'Sub Type', 'key': 'sub_type', 'object': 'self'},
-            {'column': 'D', 'title': 'Analytics ID', 'key': 'google_analytics', 'object': 'data'},
-            {'column': 'E', 'title': 'Adsense ID', 'key': 'google_adsense', 'object': 'data'},
-            {'column': 'F', 'title': 'Redirect', 'key': 'redirect', 'object': 'data'},
-            {'column': 'G', 'title': 'IP', 'key': 'ip', 'object': 'data.domain'},
-            {'column': 'H', 'title': 'Country', 'key': 'country', 'object': 'data.domain'},
-            {'column': 'I', 'title': 'City', 'key': 'city', 'object': 'data.domain'},
-            {'column': 'J', 'title': 'Registrar', 'key': 'domain', 'object': 'data.registrar'},
-            {'column': 'K', 'title': 'Registrar IP', 'key': 'ip', 'object': 'data.registrar'},
-            {'column': 'L', 'title': 'Registrar Country', 'key': 'country', 'object': 'data.registrar'},
-            {'column': 'M', 'title': 'Registrar City', 'key': 'city', 'object': 'data.registrar'}
-            ]
-
-        for overviewKey in overviewKeys:
-
-            overviewSheet[overviewKey['column']+'1'] = overviewKey['title']
-
-        overviewFormulas = [
-            {'column': 'N', 'title': 'Reddit Count', 'value': '=IFERROR(INDEX(\'reddit communities\'!D:D,MATCH(A{0},\'reddit communities\'!A:A,0)),0)'},
-            {'column': 'O', 'title': 'T_D Count', 'value': '=SUMIFS(\'reddit communities\'!C:C,\'reddit communities\'!B:B,"The_Donald",\'reddit communities\'!A:A,A{0})'},
-            {'column': 'P', 'title': 'T_D %', 'value': '=IFERROR(ROUND((O{0}/N{0})*100,2),0)'},
-            {'column': 'Q', 'title': 'Twitter Count', 'value': '=IFERROR(INDEX(\'twitter users\'!D:D,MATCH(A{0},\'twitter users\'!A:A,0)),0)'}
-            ]
-
-        for overviewFormula in overviewFormulas:
-
-            overviewSheet[overviewFormula['column']+'1'] = overviewFormula['title']
-
-        overviewRow = 2
-
-        overviews = [
-            {'title': 'twitter users', 'name': 'User', 'data': 'twitter_data.users', 'key': 'user', 'unique': [], 'row': 2},
-            {'title': 'twitter hashtags', 'name': 'Hashtag', 'data': 'twitter_data.hashtags', 'key': 'hashtag', 'unique': [], 'row': 2},
-            {'title': 'reddit users', 'name': 'User', 'data': 'reddit_data.users', 'key': 'user', 'unique': [], 'row': 2},
-            {'title': 'reddit communities', 'name': 'Community', 'data': 'reddit_data.communities', 'key': 'community', 'unique': [], 'row': 2}
-            ]
-
-        for overview in overviews:
-
-            overview['sheet'] = wb.create_sheet(overview['title'])
-
-            overview['sheet']['A1'] = 'Domain'
-            overview['sheet']['B1'] = overview['name']
-            overview['sheet']['C1'] = overview['name']+' Count'
-            overview['sheet']['D1'] = 'Domain Total'
-            overview['sheet']['E1'] = overview['name']+' %'
-
-        for domain in domains:
-
-            #
-            for overviewKey in overviewKeys:
-
-                if overviewKey['object'] == 'self':
-
-                    overviewSheet[overviewKey['column']+str(overviewRow)] = domain[overviewKey['key']]
-
-                elif overviewKey['object'] == 'data':
-
-                    overviewSheet[overviewKey['column']+str(overviewRow)] = domain['data'][overviewKey['key']]
-
-                elif '.' in overviewKey['object']:
-
-                    objectKeys = overviewKey['object'].split('.')
-
-                    obj = domain.copy()
-
-                    for objectKey in objectKeys:
-
-                        obj = obj[objectKey]
-
-                    overviewSheet[overviewKey['column']+str(overviewRow)] = obj[overviewKey['key']]
-
-            #
-            for overviewFormula in overviewFormulas:
-
-                overviewSheet[overviewFormula['column']+str(overviewRow)] = overviewFormula['value'].format(str(overviewRow))
-            
-            overviewSheet.auto_filter.ref = 'A:Q'
-
-            overviewRow = overviewRow+1
-
-            for overview in overviews:
-
-                for item in domain['data'][overview['data'].split('.')[0]][overview['data'].split('.')[1]]:
-
-                    if not item[overview['key']] in overview['unique']:
-
-                        overview['unique'].append(item[overview['key']])
-
-                    overview['sheet']['A'+str(overview['row'])] = domain['name']
-                    overview['sheet']['B'+str(overview['row'])] = item[overview['key']]
-                    overview['sheet']['C'+str(overview['row'])] = item['count']
-                    overview['sheet']['D'+str(overview['row'])] = str('=SUMIF(A:A,A'+str(overview['row'])+',C:C)')
-                    overview['sheet']['E'+str(overview['row'])] = str('=ROUND((C'+str(overview['row'])+'/D'+str(overview['row'])+')*100,2)')
-
-                    overview['sheet'].auto_filter.ref = 'A:E'
-
-                    overview['row'] = overview['row']+1
-
-        for overview in overviews:
-
-            sheet = wb.create_sheet(overview['title']+' summary')
-
-            sheet['A1'] = 'Unique'
-            sheet['B1'] = 'Total'
-            sheet['C1'] = 'Percent'
-
-            row = 2
-
-            for item in overview['unique']:
-
-                sheet['A'+str(row)] = str(item)
-                sheet['B'+str(row)] = str('=SUMIF(\''+overview['title']+'\'!B:B,A'+str(row)+',\''+overview['title']+'\'!C:C)')
-                sheet['C'+str(row)] = str('=ROUND((B'+str(row)+'/SUM(B:B))*100,2)')
-
-                sheet.auto_filter.ref = 'A:C'
-
-                row = row+1
-
-        # Delete existing file
-        if os.path.exists(self.excelOutputPath):
-
-            os.remove(self.excelOutputPath)
-
-        # Save Workbook
-        wb.save(self.excelOutputPath)
-
-        self.Log('ExportSpreadsheet : Complete')
-
-
-        return
-
-
-    # Export raw json data to file
-    # import json
-    def ExportJson(self, jsonData):
-
-        jsonData = json.dumps(jsonData)
-
-        f = open(self.rawOutputPath, 'w', encoding='utf-8')
-        f.write(jsonData)
-        f.close()
-
-
-        return
 
 
     # Check for redirects and link shorteners
@@ -736,7 +401,13 @@ class Disinformation:
     # import tweepy
     def InitializeTwitter(self):
 
-        global twitterAuthData
+        twitterAuthData = self.LoadJson(self.twitterAuthPath)
+
+        if 'error' in twitterAuthData.keys():
+
+            self.disableTwitter = True
+
+            return
 
         self.twitterAuth = tweepy.OAuthHandler(twitterAuthData['consumer_key'], twitterAuthData['consumer_secret'])
         self.twitterAuth.set_access_token(twitterAuthData['access_token'], twitterAuthData['access_token_secret'])
@@ -762,6 +433,10 @@ class Disinformation:
         if not self.twitterInitialized:
 
             self.InitializeTwitter()
+
+        if self.disableTwitter:
+
+            return twitterResults
 
         results = self.twitterApi.search(domain['domain'])
 
@@ -1179,6 +854,234 @@ class Disinformation:
 
 
         return redditJson
+
+
+    # Loads json data from file
+    # import json, os
+    def LoadJson(self, filePath):
+
+        if not os.path.exists(filePath):
+
+            self.Log('LoadJson : Error - File not found: '+filePath)
+            return {'error': 'File {0} not found.'.format(filePath)}
+
+        f = open(filePath, 'r', encoding='utf-8')
+        raw = f.read()
+        f.close()
+
+        jsonData = json.loads(raw)
+
+
+        return jsonData
+
+
+    # Export domain data as spreadsheet
+    # import openpyxl, os
+    def ExportSpreadsheet(self, domains):
+
+        self.Log('ExportSpreadsheet : Starting')
+
+        wb = openpyxl.Workbook()
+
+        overviewSheet = wb.active
+        overviewSheet.title = 'Overview'
+
+        overviewKeys = [
+            {'column': 'A', 'title': 'Domain', 'key': 'name', 'object': 'self'},
+            {'column': 'B', 'title': 'Type', 'key': 'type', 'object': 'self'},
+            {'column': 'C', 'title': 'Sub Type', 'key': 'sub_type', 'object': 'self'},
+            {'column': 'D', 'title': 'Analytics ID', 'key': 'google_analytics', 'object': 'data'},
+            {'column': 'E', 'title': 'Adsense ID', 'key': 'google_adsense', 'object': 'data'},
+            {'column': 'F', 'title': 'Redirect', 'key': 'redirect', 'object': 'data'},
+            {'column': 'G', 'title': 'IP', 'key': 'ip', 'object': 'data.domain'},
+            {'column': 'H', 'title': 'Country', 'key': 'country', 'object': 'data.domain'},
+            {'column': 'I', 'title': 'City', 'key': 'city', 'object': 'data.domain'},
+            {'column': 'J', 'title': 'Registrar', 'key': 'domain', 'object': 'data.registrar'},
+            {'column': 'K', 'title': 'Registrar IP', 'key': 'ip', 'object': 'data.registrar'},
+            {'column': 'L', 'title': 'Registrar Country', 'key': 'country', 'object': 'data.registrar'},
+            {'column': 'M', 'title': 'Registrar City', 'key': 'city', 'object': 'data.registrar'}
+            ]
+
+        for overviewKey in overviewKeys:
+
+            overviewSheet[overviewKey['column']+'1'] = overviewKey['title']
+
+        overviewFormulas = [
+            {'column': 'N', 'title': 'Reddit Count', 'value': '=IFERROR(INDEX(\'reddit communities\'!D:D,MATCH(A{0},\'reddit communities\'!A:A,0)),0)', 'type': 'reddit'},
+            {'column': 'O', 'title': 'T_D Count', 'value': '=SUMIFS(\'reddit communities\'!C:C,\'reddit communities\'!B:B,"The_Donald",\'reddit communities\'!A:A,A{0})', 'type': 'reddit'},
+            {'column': 'P', 'title': 'T_D %', 'value': '=IFERROR(ROUND((O{0}/N{0})*100,2),0)', 'type': 'reddit'},
+            {'column': 'Q', 'title': 'Twitter Count', 'value': '=IFERROR(INDEX(\'twitter users\'!D:D,MATCH(A{0},\'twitter users\'!A:A,0)),0)', 'type': 'twitter'}
+            ]
+
+        for overviewFormula in overviewFormulas:
+
+            overviewSheet[overviewFormula['column']+'1'] = overviewFormula['title']
+
+        overviewRow = 2
+
+        overviews = [
+            {'title': 'twitter users', 'name': 'User', 'data': 'twitter_data.users', 'key': 'user', 'unique': [], 'row': 2, 'type': 'twitter'},
+            {'title': 'twitter hashtags', 'name': 'Hashtag', 'data': 'twitter_data.hashtags', 'key': 'hashtag', 'unique': [], 'row': 2, 'type': 'twitter'},
+            {'title': 'reddit users', 'name': 'User', 'data': 'reddit_data.users', 'key': 'user', 'unique': [], 'row': 2, 'type': 'reddit'},
+            {'title': 'reddit communities', 'name': 'Community', 'data': 'reddit_data.communities', 'key': 'community', 'unique': [], 'row': 2, 'type': 'reddit'}
+            ]
+
+        for overview in overviews:
+
+            proceed = True
+
+            if overview['type'] == 'twitter' and self.disableTwitter:
+
+                proceed = False
+
+            if proceed:
+
+                overview['sheet'] = wb.create_sheet(overview['title'])
+
+                overview['sheet']['A1'] = 'Domain'
+                overview['sheet']['B1'] = overview['name']
+                overview['sheet']['C1'] = overview['name']+' Count'
+                overview['sheet']['D1'] = 'Domain Total'
+                overview['sheet']['E1'] = overview['name']+' %'
+
+        for domain in domains:
+
+            for overviewKey in overviewKeys:
+
+                if overviewKey['object'] == 'self':
+
+                    overviewSheet[overviewKey['column']+str(overviewRow)] = domain[overviewKey['key']]
+
+                elif overviewKey['object'] == 'data':
+
+                    overviewSheet[overviewKey['column']+str(overviewRow)] = domain['data'][overviewKey['key']]
+
+                elif '.' in overviewKey['object']:
+
+                    objectKeys = overviewKey['object'].split('.')
+
+                    obj = domain.copy()
+
+                    for objectKey in objectKeys:
+
+                        obj = obj[objectKey]
+
+                    overviewSheet[overviewKey['column']+str(overviewRow)] = obj[overviewKey['key']]
+
+            for overviewFormula in overviewFormulas:
+
+                proceed = True
+
+                if overviewFormula['type'] == 'twitter' and self.disableTwitter:
+
+                    proceed = False
+
+                if proceed:
+                    
+                    overviewSheet[overviewFormula['column']+str(overviewRow)] = overviewFormula['value'].format(str(overviewRow))
+            
+            overviewSheet.auto_filter.ref = 'A:Q'
+            
+            overviewColumnsToResize = 'ABCDEFGHIJKLMNOPQ'
+
+            for overviewColumnToResize in overviewColumnsToResize:
+
+                overviewSheet.column_dimensions[overviewColumnToResize].auto_size = True
+
+            overviewRow = overviewRow+1
+
+            for overview in overviews:
+
+                proceed = True
+
+                if overview['type'] == 'twitter' and self.disableTwitter:
+
+                    proceed = False
+
+                if proceed:
+
+                    for item in domain['data'][overview['data'].split('.')[0]][overview['data'].split('.')[1]]:
+
+                        if not item[overview['key']] in overview['unique']:
+
+                            overview['unique'].append(item[overview['key']])
+
+                        overview['sheet']['A'+str(overview['row'])] = domain['name']
+                        overview['sheet']['B'+str(overview['row'])] = item[overview['key']]
+                        overview['sheet']['C'+str(overview['row'])] = item['count']
+                        overview['sheet']['D'+str(overview['row'])] = str('=SUMIF(A:A,A'+str(overview['row'])+',C:C)')
+                        overview['sheet']['E'+str(overview['row'])] = str('=ROUND((C'+str(overview['row'])+'/D'+str(overview['row'])+')*100,2)')
+
+                        overview['row'] = overview['row']+1
+
+                    overview['sheet'].auto_filter.ref = 'A:E'
+
+                    columnsToResize = 'ABCDE'
+
+                    for columnToResize in columnsToResize:
+
+                        overview['sheet'].column_dimensions[columnToResize].auto_size = True
+
+        for overview in overviews:
+
+            proceed = True
+
+            if overview['type'] == 'twitter' and self.disableTwitter:
+
+                proceed = False
+
+            if proceed:
+
+                sheet = wb.create_sheet(overview['title']+' summary')
+
+                sheet['A1'] = 'Unique'
+                sheet['B1'] = 'Total'
+                sheet['C1'] = 'Percent'
+
+                row = 2
+
+                for item in overview['unique']:
+
+                    sheet['A'+str(row)] = str(item)
+                    sheet['B'+str(row)] = str('=SUMIF(\''+overview['title']+'\'!B:B,A'+str(row)+',\''+overview['title']+'\'!C:C)')
+                    sheet['C'+str(row)] = str('=ROUND((B'+str(row)+'/SUM(B:B))*100,2)')
+
+                    row = row+1
+
+                sheet.auto_filter.ref = 'A:C'
+
+                columnsToResize = 'ABC'
+
+                for columnToResize in columnsToResize:
+
+                    sheet.column_dimensions[columnToResize].auto_size = True
+
+        # Delete existing file
+        if os.path.exists(self.excelOutputPath):
+
+            os.remove(self.excelOutputPath)
+
+        # Save Workbook
+        wb.save(self.excelOutputPath)
+
+        self.Log('ExportSpreadsheet : Complete')
+
+
+        return
+
+
+    # Export raw json data to file
+    # import json
+    def ExportJson(self, jsonData):
+
+        jsonData = json.dumps(jsonData)
+
+        f = open(self.rawOutputPath, 'w', encoding='utf-8')
+        f.write(jsonData)
+        f.close()
+
+
+        return
 
 
     # Get timestamp
