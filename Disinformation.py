@@ -1,3 +1,12 @@
+#!/usr/bin/python
+
+##################################################
+#
+# Python 3.6
+#
+##################################################
+
+
 import datetime, json, openpyxl, os, pythonwhois, re, requests, socket, time, tweepy
 
 
@@ -40,9 +49,9 @@ class Disinformation:
         self.Log('Starting', True)
 
         #domainsToCheck = [{"name": "usareally.com", "type": "Russian", "sub_type": "Deceptive"}]
-
+        
         domainsToCheck = self.LoadJson(self.domainsToCheckPath)
-
+        
         for domainToCheck in domainsToCheck:
 
             domainToCheck['data'] = self.CheckDomain(domainToCheck['name'])
@@ -50,24 +59,26 @@ class Disinformation:
         # Import previous results if True
         importPreviousDomains = False
 
-        domainsToImport = self.LoadJson(self.rawOutputPath)
+        if importPreviousDomains:
 
-        if isinstance(domainsToImport, list):
+            domainsToImport = self.LoadJson(self.rawOutputPath)
 
-            for domainToImport in domainsToImport:
+            if isinstance(domainsToImport, list):
 
-                # Don't duplicate domains
-                if len(domainsToCheck) == 0:
+                for domainToImport in domainsToImport:
 
-                    domainsToCheck.append(domainToImport)
-
-                else:
-
-                    domainFind = list(filter(lambda d: d['name'] == domainToImport['name'], domainsToCheck))
-
-                    if len(domainFind) == 0:
+                    # Don't duplicate domains
+                    if len(domainsToCheck) == 0:
 
                         domainsToCheck.append(domainToImport)
+
+                    else:
+
+                        domainFind = list(filter(lambda d: d['name'] == domainToImport['name'], domainsToCheck))
+
+                        if len(domainFind) == 0:
+
+                            domainsToCheck.append(domainToImport)
 
         # Export as raw json file
         self.ExportJson(domainsToCheck)
@@ -136,6 +147,8 @@ class Disinformation:
             domainInfo['twitter_data'] = self.SearchTwitter(domainInfo['domain'])
 
         domainInfo['reddit_data'] = self.SearchReddit(domainInfo['domain'])
+
+        domainInfo['tumblr_data'] = self.SearchTumblr(domainInfo['domain'])
 
         tracking = self.GetTracking(domainInfo['domain'])
 
@@ -856,6 +869,97 @@ class Disinformation:
         return redditJson
 
 
+    # Search tumblr
+    # import json, re, requests
+    def SearchTumblr(self, domain):
+
+        self.Log('SearchTumblr : Starting '+domain['domain'])
+
+        tumblrResults = {
+            'users': []
+            }
+
+        tumblrSearchUrl = 'https://www.tumblr.com/search/'+domain['domain']
+
+        try:
+
+            response = requests.get(tumblrSearchUrl, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'})
+
+            if response.status_code == requests.codes.ok:
+
+                html = response.text
+
+                tumblrPostFinder = re.compile('<article(.*?)</article', re.MULTILINE|re.DOTALL)
+                tumblrPostsHtml = tumblrPostFinder.findall(html)
+                
+                for tumblrPostHtml in tumblrPostsHtml:
+
+                    tumblrPostHtml = tumblrPostHtml.replace('\r', '').replace('\n', '').replace('\t', ' ').replace('&quot;', '"').replace('&amp;', '&')
+
+                    while '  ' in tumblrPostHtml:
+
+                        tumblrPostHtml = tumblrPostHtml.replace('  ', ' ')
+
+                    jsonFinder = re.compile('data-json=\'(.*?)\'', re.MULTILINE|re.DOTALL)
+                    jsonData = jsonFinder.findall(tumblrPostHtml)
+
+                    if len(jsonData) > 0:
+
+                        jsonData = json.loads(jsonData[0])
+
+                        tumblrPost = {}
+
+                        tumblrKeys = [
+                            ['id', 'id'],
+                            ['tumblelog', 'user']
+                            ]
+
+                        missingKeys = False
+
+                        for tumblrKey in tumblrKeys:
+
+                            if tumblrKey[0] in jsonData:
+
+                                tumblrPost[tumblrKey[1]] = jsonData[tumblrKey[0]]
+
+                            else:
+
+                                missingKeys = True
+                                break
+
+                        if not missingKeys:
+
+                            user = {
+                                'user': tumblrPost['user'],
+                                'count': 1
+                                }
+
+                            if len(tumblrResults['users']) == 0:
+
+                                tumblrResults['users'].append(user)
+
+                            else:
+
+                                userFind = list(filter(lambda u: u['user'] == user['user'], tumblrResults['users']))
+
+                                if len(userFind) == 0:
+
+                                    tumblrResults['users'].append(user)
+
+                                else:
+
+                                    userFind[0]['count'] = userFind[0]['count']+1
+
+        except Exception as e:
+
+            self.Log('SearchTumblr : Error - '+str(e))
+
+        self.Log('SearchTumblr : Completed '+domain['domain'])
+
+
+        return tumblrResults
+
+
     # Loads json data from file
     # import json, os
     def LoadJson(self, filePath):
@@ -910,7 +1014,8 @@ class Disinformation:
             {'column': 'N', 'title': 'Reddit Count', 'value': '=IFERROR(INDEX(\'reddit communities\'!D:D,MATCH(A{0},\'reddit communities\'!A:A,0)),0)', 'type': 'reddit'},
             {'column': 'O', 'title': 'T_D Count', 'value': '=SUMIFS(\'reddit communities\'!C:C,\'reddit communities\'!B:B,"The_Donald",\'reddit communities\'!A:A,A{0})', 'type': 'reddit'},
             {'column': 'P', 'title': 'T_D %', 'value': '=IFERROR(ROUND((O{0}/N{0})*100,2),0)', 'type': 'reddit'},
-            {'column': 'Q', 'title': 'Twitter Count', 'value': '=IFERROR(INDEX(\'twitter users\'!D:D,MATCH(A{0},\'twitter users\'!A:A,0)),0)', 'type': 'twitter'}
+            {'column': 'Q', 'title': 'Tumblr Count', 'value': '=IFERROR(INDEX(\'tumblr users\'!D:D,MATCH(A{0},\'tumblr users\'!A:A,0)),0)', 'type': 'tumblr'},
+            {'column': 'R', 'title': 'Twitter Count', 'value': '=IFERROR(INDEX(\'twitter users\'!D:D,MATCH(A{0},\'twitter users\'!A:A,0)),0)', 'type': 'twitter'}
             ]
 
         for overviewFormula in overviewFormulas:
@@ -923,7 +1028,8 @@ class Disinformation:
             {'title': 'twitter users', 'name': 'User', 'data': 'twitter_data.users', 'key': 'user', 'unique': [], 'row': 2, 'type': 'twitter'},
             {'title': 'twitter hashtags', 'name': 'Hashtag', 'data': 'twitter_data.hashtags', 'key': 'hashtag', 'unique': [], 'row': 2, 'type': 'twitter'},
             {'title': 'reddit users', 'name': 'User', 'data': 'reddit_data.users', 'key': 'user', 'unique': [], 'row': 2, 'type': 'reddit'},
-            {'title': 'reddit communities', 'name': 'Community', 'data': 'reddit_data.communities', 'key': 'community', 'unique': [], 'row': 2, 'type': 'reddit'}
+            {'title': 'reddit communities', 'name': 'Community', 'data': 'reddit_data.communities', 'key': 'community', 'unique': [], 'row': 2, 'type': 'reddit'},
+            {'title': 'tumblr users', 'name': 'User', 'data': 'tumblr_data.users', 'key': 'user', 'unique': [], 'row': 2, 'type': 'tumblr'}
             ]
 
         for overview in overviews:
@@ -980,9 +1086,9 @@ class Disinformation:
                     
                     overviewSheet[overviewFormula['column']+str(overviewRow)] = overviewFormula['value'].format(str(overviewRow))
             
-            overviewSheet.auto_filter.ref = 'A:Q'
+            overviewSheet.auto_filter.ref = 'A:R'
             
-            overviewColumnsToResize = 'ABCDEFGHIJKLMNOPQ'
+            overviewColumnsToResize = 'ABCDEFGHIJKLMNOPQR'
 
             for overviewColumnToResize in overviewColumnsToResize:
 
