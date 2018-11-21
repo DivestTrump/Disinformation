@@ -8,6 +8,7 @@
 
 
 import datetime, json, openpyxl, os, pythonwhois, re, requests, socket, time, tweepy
+from psaw import PushshiftAPI
 
 
 class Disinformation:
@@ -43,7 +44,11 @@ class Disinformation:
 
             self.InitializeTwitter()
 
-        self.InitializeReddit()
+        self.redditLiveData = False # False = pushshift API, True = reddit API
+
+        if self.redditLiveData:
+
+            self.InitializeReddit()
 
 
         self.Log('Starting', True)
@@ -52,9 +57,17 @@ class Disinformation:
         
         domainsToCheck = self.LoadJson(self.domainsToCheckPath)
         
+        domainNumber = 1
+        
         for domainToCheck in domainsToCheck:
 
+            print('{0} / {1}'.format(str(domainNumber), str(len(domainsToCheck))))
+
             domainToCheck['data'] = self.CheckDomain(domainToCheck['name'])
+
+            self.ExportJson(domainsToCheck)##
+
+            domainNumber = domainNumber+1
 
         # Import previous results if True
         importPreviousDomains = False
@@ -146,7 +159,13 @@ class Disinformation:
 
             domainInfo['twitter_data'] = self.SearchTwitter(domainInfo['domain'])
 
-        domainInfo['reddit_data'] = self.SearchReddit(domainInfo['domain'])
+        if self.redditLiveData:
+            
+            domainInfo['reddit_data'] = self.SearchReddit(domainInfo['domain'])
+
+        else:
+
+            domainInfo['reddit_data'] = self.SearchPushshift(domainInfo['domain'])
 
         domainInfo['tumblr_data'] = self.SearchTumblr(domainInfo['domain'])
 
@@ -440,7 +459,8 @@ class Disinformation:
 
         twitterResults = {
             'users': [],
-            'hashtags': []
+            'hashtags': [],
+            'raw': []
             }
 
         if not self.twitterInitialized:
@@ -454,6 +474,16 @@ class Disinformation:
         results = self.twitterApi.search(domain['domain'])
 
         for result in results:
+
+            tweet = {
+                'tweet_id': result._json['id_str'],
+                'user': result._json['user']['screen_name'],
+                'user_id': result._json['user']['id_str'],
+                'likes': result._json['favorite_count'],
+                'retweets': result._json['retweet_count'],
+                'created': result._json['created_at']
+                }
+            twitterResults['raw'].append(tweet)
 
             user = {
                 'user': result._json['user']['screen_name'],
@@ -529,7 +559,8 @@ class Disinformation:
 
         redditResults = {
             'communities': [],
-            'users': []
+            'users': [],
+            'raw': []
             }
 
         processedThings = []
@@ -562,6 +593,8 @@ class Disinformation:
                 if not domainSubmission['name'] in processedThings:
 
                     processedThings.append(domainSubmission['name'])
+
+                    redditResults['raw'].append(domainSubmission)
 
                     community = {
                         'community': domainSubmission['subreddit'],
@@ -867,6 +900,127 @@ class Disinformation:
 
 
         return redditJson
+
+
+    # Search reddit for domain using pushshift API
+    # from psaw import PushshiftAPI
+    def SearchPushshift(self, domain):
+
+        self.Log('SearchPushshift : Starting '+domain['domain'])
+
+        redditResults = {
+            'communities': [],
+            'users': [],
+            'raw': []
+            }
+
+        psawApi = PushshiftAPI()
+
+        domainSubmissions = psawApi.search_submissions(domain=domain['domain'])
+
+        for domainSubmission in domainSubmissions:
+
+            domainSubmission = self.FormatPushshiftThing(domainSubmission)
+
+            redditResults['raw'].append(domainSubmission)
+
+            if 'subreddit' in domainSubmission.keys():
+
+                community = {
+                    'community': domainSubmission['subreddit'],
+                    'count': 1
+                    }
+
+                if len(redditResults['communities']) == 0:
+
+                    redditResults['communities'].append(community)
+
+                else:
+
+                    communityFind = list(filter(lambda c: c['community'] == domainSubmission['subreddit'], redditResults['communities']))
+                    
+                    if len(communityFind) == 0:
+
+                        redditResults['communities'].append(community)
+
+                    else:
+
+                        communityFind[0]['count'] = communityFind[0]['count']+1
+                            
+            if 'author' in domainSubmission.keys(): 
+
+                user = {
+                    'user': domainSubmission['author'],
+                    'count': 1
+                    }
+
+                if len(redditResults['users']) == 0:
+
+                    redditResults['users'].append(user)
+
+                else:
+
+                    userFind = list(filter(lambda u: u['user'] == domainSubmission['author'], redditResults['users']))
+
+                    if len(userFind) == 0:
+
+                        redditResults['users'].append(user)
+
+                    else:
+
+                        userFind[0]['count'] = userFind[0]['count']+1
+
+
+        return redditResults
+
+
+    def FormatPushshiftThing(self, thingData):
+
+        thing = {}
+
+        submissionKeys = [
+            ['archived', 'archived'],
+            ['author', 'author'],
+            ['category', 'category'],
+            ['content_categories', 'content_categories'],
+            ['contest', 'contest_mode'],
+            ['created', 'created_utc'],
+            ['distinguished', 'distinguished'],
+            ['domain', 'domain'],
+            ['edited', 'edited'],
+            ['gilded', 'gilded'],
+            ['hidden', 'hidden'],
+            ['id', 'id'],
+            ['is_meta', 'is_meta'],
+            ['is_oc', 'is_original_content'],
+            ['is_self', 'is_self'],
+            ['locked', 'locked'],
+            ['name', 'name'],
+            ['num_comments', 'num_comments'],
+            ['num_crossposts', 'num_crossposts'],
+            ['nsfw', 'over_18'],
+            ['parent_whitelist', 'parent_whitelist_status'],
+            ['pinned', 'pinned'],
+            ['quarantine', 'quarantine'],
+            ['score', 'score'],
+            ['selftext', 'selftext'],
+            ['selftext_html', 'selftext_html'],
+            ['spoiler', 'spoiler'],
+            ['stickied', 'stickied'],
+            ['subreddit', 'subreddit'],
+            ['title', 'title'],
+            ['url', 'url'],
+            ['whitelist', 'whitelist_status']
+            ]
+
+        for submissionKey in submissionKeys:
+
+            if submissionKey[1] in dir(thingData):
+
+                thing[submissionKey[0]] = getattr(thingData, submissionKey[1])
+
+
+        return thing
 
 
     # Search tumblr
