@@ -7,7 +7,7 @@ Tracks the spread of (propaganda) domains across social media. Currently searche
 # Build
 
 Python 3.6
-pip packages: openpyxl, pythonwhois, tweepy
+pip packages: openpyxl, psaw, pythonwhois, tweepy
 
 # TODO
 
